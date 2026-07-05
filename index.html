@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Плавен забавен кадър</title>
+<meta name="description" content="Направи плавен забавен кадър от видео директно в браузъра — с интерполация на кадри, без сървър." />
+<meta name="theme-color" content="#0f1020" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" href="./icons/icon-192.png" />
+<link rel="apple-touch-icon" href="./icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <h1>Плавен забавен кадър</h1>
+    <p class="subtitle">
+      Истинска интерполация на кадри (motion interpolation), а не просто намалена скорост —
+      затова резултатът е плавен, не накъсан. Всичко се случва локално в браузъра ти.
+    </p>
+    <button id="install-btn" class="btn btn-ghost btn-small" hidden>Инсталирай приложението</button>
+  </header>
+
+  <main>
+    <section class="card" id="step-source" aria-labelledby="step-source-title">
+      <h2 id="step-source-title"><span class="step-num">1</span> Избери видео</h2>
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Провлачи видео тук или натисни за избор на файл">
+        <svg class="dropzone-icon" viewBox="0 0 24 24" width="40" height="40" aria-hidden="true">
+          <path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42l2.3 2.3V4a1 1 0 0 1 1-1Z M5 18a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/>
+        </svg>
+        <p><strong>Провлачи видео тук</strong> или натисни за избор</p>
+        <p class="hint">MP4, MOV, WebM…</p>
+      </div>
+      <input type="file" id="file-input" accept="video/*" hidden />
+
+      <div id="source-info" class="info-box" hidden>
+        <video id="source-preview" class="preview-video" muted playsinline controls></video>
+        <dl class="meta-list">
+          <div><dt>Файл</dt><dd id="meta-name">—</dd></div>
+          <div><dt>Времетраене</dt><dd id="meta-duration">—</dd></div>
+          <div><dt>Резолюция</dt><dd id="meta-resolution">—</dd></div>
+        </dl>
+      </div>
+
+      <div id="source-warning" class="banner banner-warn" role="alert" hidden></div>
+    </section>
+
+    <section class="card" id="step-settings" aria-labelledby="step-settings-title" hidden>
+      <h2 id="step-settings-title"><span class="step-num">2</span> Настройки</h2>
+
+      <div class="field">
+        <label for="factor-select">Забавяне</label>
+        <select id="factor-select">
+          <option value="2" selected>×2 по-бавно</option>
+          <option value="3">×3 по-бавно</option>
+          <option value="4">×4 по-бавно</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="fps-select">Изходни fps</label>
+        <select id="fps-select">
+          <option value="24">24</option>
+          <option value="30" selected>30</option>
+          <option value="60">60</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Режим на обработка</label>
+        <div class="radio-group">
+          <label class="radio-option">
+            <input type="radio" name="mode" value="smooth" checked />
+            <span><strong>Плавен</strong> — интерполация на кадри (minterpolate). Най-добро качество, по-бавно.</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="mode" value="fast" />
+            <span><strong>Бърз</strong> — смесване на кадри (blend). По-бързо, по-мек ефект на разфокус в движение.</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="field field-checkbox">
+        <label class="checkbox-option">
+          <input type="checkbox" id="downscale-check" />
+          <span>Свали до 720p преди обработка (по-бързо, препоръчително за дълги/HD клипове)</span>
+        </label>
+      </div>
+    </section>
+
+    <section class="card" id="step-process" aria-labelledby="step-process-title" hidden>
+      <h2 id="step-process-title"><span class="step-num">3</span> Обработи</h2>
+      <p class="note">
+        Плавната интерполация натоварва процесора и може да отнеме няколко минути според дължината
+        на видеото — не затваряй раздела, докато тече обработката.
+      </p>
+      <button id="process-btn" class="btn btn-primary">Обработи видеото</button>
+
+      <div id="progress-wrap" class="progress-wrap" hidden>
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <p id="progress-status" class="progress-status">Подготовка…</p>
+      </div>
+
+      <div id="process-error" class="banner banner-error" role="alert" hidden></div>
+    </section>
+
+    <section class="card" id="step-result" aria-labelledby="step-result-title" hidden>
+      <h2 id="step-result-title"><span class="step-num">4</span> Резултат</h2>
+      <video id="result-video" class="preview-video" controls playsinline></video>
+      <a id="download-btn" class="btn btn-primary" download="slowmo.mp4">Свали видеото</a>
+      <button id="reset-btn" class="btn btn-ghost">Обработи друго видео</button>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Работи изцяло локално в браузъра — видеото ти никога не напуска устройството.</p>
+    <p id="isolation-status" class="isolation-status"></p>
+  </footer>
+</div>
+
+<script>
+  // Register the combined COOP/COEP + app-shell service worker as early as
+  // possible. Registration path is relative so this works from a GitHub
+  // Pages subfolder (https://user.github.io/repo-name/).
+  (function () {
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.register('./sw.js').then(function (registration) {
+      if (window.crossOriginIsolated) return; // already isolated, nothing to do
+
+      var RELOAD_FLAG = 'slowmo-sw-reload-attempted';
+      function reloadOnce() {
+        try {
+          if (sessionStorage.getItem(RELOAD_FLAG) === '1') return;
+          sessionStorage.setItem(RELOAD_FLAG, '1');
+        } catch (e) { /* private mode: fall through, worst case reload once anyway */ }
+        window.location.reload();
+      }
+
+      // Already controlled but still not isolated (header injection failed
+      // for some reason) - don't loop, just continue without SharedArrayBuffer.
+      if (registration.active && navigator.serviceWorker.controller) return;
+
+      registration.addEventListener('updatefound', function () {
+        var installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener('statechange', function () {
+          if (installing.state === 'activated') reloadOnce();
+        });
+      });
+
+      if (registration.active) reloadOnce();
+    }).catch(function (err) {
+      console.warn('Service worker registration failed; continuing without cross-origin isolation (multi-thread FFmpeg will fall back to single-thread).', err);
+    });
+  })();
+</script>
+<script type="module" src="./js/app.js"></script>
+</body>
+</html>
