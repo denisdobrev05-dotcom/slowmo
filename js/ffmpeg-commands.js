@@ -42,13 +42,22 @@ export function buildFilterGraph({ mode, factor, outputFps, downscale }) {
  */
 export function buildFfmpegArgs({ inputName, outputName, mode, factor, outputFps, downscale }) {
   const filterGraph = buildFilterGraph({ mode, factor, outputFps, downscale });
+  // FFmpeg.wasm runs on a single CPU core whenever the page isn't
+  // cross-origin isolated (no multi-thread core), so the x264 encode step
+  // - not just the interpolation filter - can dominate total time. "ultrafast"
+  // plus disabled B-frame search cuts encode time roughly in half with no
+  // effect on interpolation smoothness (preset only affects the encoder).
+  // "Бърз" additionally trades a bit more compression (higher CRF) for speed,
+  // since it's the quick/preview option.
+  const crf = mode === 'fast' ? '24' : '20';
   return [
     '-i', inputName,
     '-vf', filterGraph,
     '-r', String(outputFps),
     '-c:v', 'libx264',
-    '-preset', 'veryfast',
-    '-crf', '20',
+    '-preset', 'ultrafast',
+    '-bf', '0',
+    '-crf', crf,
     '-pix_fmt', 'yuv420p',
     '-an',
     outputName,

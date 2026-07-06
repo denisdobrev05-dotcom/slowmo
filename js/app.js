@@ -34,6 +34,7 @@ const factorSelect = document.getElementById('factor-select');
 const fpsSelect = document.getElementById('fps-select');
 const downscaleCheck = document.getElementById('downscale-check');
 
+const singleThreadWarningEl = document.getElementById('single-thread-warning');
 const processBtn = document.getElementById('process-btn');
 const progressWrap = document.getElementById('progress-wrap');
 const progressBar = document.getElementById('progress-bar');
@@ -72,9 +73,11 @@ window.addEventListener('appinstalled', () => {
 
 // ---- isolation status ----
 function renderIsolationStatus() {
-  isolationStatusEl.textContent = self.crossOriginIsolated
+  const isolated = self.crossOriginIsolated;
+  isolationStatusEl.textContent = isolated
     ? 'Многонишкова обработка е активна (по-бърза).'
     : 'Работи в еднонишков режим (по-бавно) — презареди страницата, ако това е първото зареждане.';
+  singleThreadWarningEl.hidden = !!isolated;
 }
 renderIsolationStatus();
 
